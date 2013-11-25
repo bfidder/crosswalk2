@@ -1,0 +1,302 @@
+#!/usr/bin/python
+
+import sys
+import random
+import math
+import heapq
+from LehmerRNG import LehmerRNG
+from welford import Welford
+
+#class definitions
+class Pedestrian:
+	def __init__(self,speed,arrival_time,wait_time,walking,position,direction,time_at_cross):
+		self.speed = speed
+		self.arrival_time = arrival_time
+		self.wait_time = wait_time
+		self.walking = walking
+		self.position = position
+		self.direction = direction
+		self.time_at_cross = time_at_cross
+	def calc_walk_time_to_crosswalk(self):
+		return (165/self.speed) + self.arrival_time
+	def calc_time_to_cross(self):
+		return (46/self.speed) 
+	def can_cross(self,crosswalk,time):
+		time_to_cross = self.calc_time_to_cross()
+		return True if ((crosswalk.when_walk + 12) - time > time_to_cross)  else False
+
+class Car:
+	def __init__(self,speed,position,arrival_time,wait_time,direction,time_at_cross):
+		self.speed = speed
+		self.position = position
+		self.arrival_time = arrival_time
+		self.wait_time = wait_time
+		self.direction = direction
+		self.time_at_cross = time_at_cross
+	def calc_time_to_crosswalk(self):
+		return (1143/self.speed) + self.arrival_time
+	def calc_time_from_cross_to_exit(self,time):
+		return (1167/self.speed) + time
+		
+	
+class Event:
+	def __init__(self,e_type,car_ped_cross,arrival_time):
+		self.e_type = e_type
+		self.car_ped_cross = car_ped_cross
+		self.arrival_time = arrival_time
+	def __lt__(self,event):
+		return self.arrival_time < event.arrival_time
+
+class Crosswalk:
+	def __init__(self,state,walk,last_green,button_pressed,when_walk):
+		self.state = state
+		self.walk = walk
+		self.last_green = last_green
+		self.cars_waiting = []
+		self.peds_waiting = []
+		self.button_pressed = button_pressed
+		self.when_walk = when_walk
+
+#get the command line arguments
+argsize = len(sys.argv)
+if argsize != 4:
+	print "Error: incorrect number of arguments."
+	exit(1)
+
+run_type = sys.argv[1]
+run_time = float(sys.argv[2])
+run_time_sec = run_time*60
+seed = int(sys.argv[3])
+
+#functions for getting a uniform random number
+#for a range and an exponiential random number
+def rand_range(rng, a, b):
+	uni_random = rng.random()
+	return ((uni_random*(b-a)) + a)
+
+def exponential(rng, n):
+	return -n * math.log(1-rng.random())
+
+def bernoulli(rng, p):
+	return 1 if (rng.random() < (1.0 - p)) else 0
+
+#function for creating a new car
+def new_car(rng,time,direction):
+	n_car = Car(36.66, 0, time, False, direction,time)
+	n_car.speed = rand_range(rng,36.66, 51.33)
+	return n_car
+
+#function for creating a new pedestrian
+def new_ped(rng,time,direction):
+	n_ped = Pedestrian(6, time, 0, False, 0, direction, time)
+	n_ped.speed = rand_range(rng,6, 13)
+	return n_ped
+
+if run_type == 'M':
+	#do ALL THE SETUP!
+	#initialize the LehmerRNG
+	rng = LehmerRNG(seed, 0)
+	sim_clock = 0.0
+	event_queue = []
+	cars = []
+	peds = []
+	crosswalk = Crosswalk('green',False,0,False,0)
+	
+	#initialize the car arrival events (from both sides
+	#I'm using exponential 15 because there are 4 car per
+	#minute and a 1/4 of a minute is 15 seconds and the 
+	#range is in feet/sec instead of miles per hour
+	car_start_left = Car(rand_range(rng,36.66,51.33),0,exponential(rng,15),0,'left',0)
+	event1 = Event('car_arrival',car_start_left,car_start_left.arrival_time)
+	car_start_right = Car(rand_range(rng,36.66,51.33),2310,exponential(rng,15),0,'right',0)
+	event2 = Event('car_arrival',car_start_right,car_start_right.arrival_time)
+	heapq.heappush(event_queue, event1)
+	heapq.heappush(event_queue, event2)
+	
+	#For testing the crosswalk. It worked correctly. :)
+	#e = Event('button_push',crosswalk,10)
+	#heapq.heappush(event_queue, e)
+	
+	#initialize the ped arrival events (from both sides)
+	ped_start_left = Pedestrian(rand_range(rng,6,13),exponential(rng,15),0,False,0,'left',0)
+	ped_start_right = Pedestrian(rand_range(rng,6,13),exponential(rng,15),0,False,330,'right',0)
+	ped_event1 = Event('ped_arrival',ped_start_left,ped_start_left.arrival_time)
+	ped_event2 = Event('ped_arrival',ped_start_right,ped_start_right.arrival_time)
+	heapq.heappush(event_queue, ped_event1)
+	heapq.heappush(event_queue, ped_event2)
+		
+	while sim_clock <= run_time_sec or event_queue:
+		#run the simulation
+		event = heapq.heappop(event_queue)
+		#car block logic
+		if event.e_type == 'car_arrival':
+			#print 'car arrives: %f' % (event.arrival_time)
+			car = event.car_ped_cross
+			new_e_time = car.calc_time_to_crosswalk()
+			new_e = Event('car_crosswalk',car,new_e_time)
+			heapq.heappush(event_queue, new_e)
+			if sim_clock < run_time_sec:
+				time_to_add = exponential(rng,15)
+				if car.arrival_time + time_to_add < run_time_sec:
+					new_c = new_car(rng,car.arrival_time+time_to_add,car.direction)
+					e = Event('car_arrival',new_c,new_c.arrival_time)
+					heapq.heappush(event_queue,e)
+
+		elif event.e_type == 'car_crosswalk':
+			#print 'car in crosswalk: %f' % (event.arrival_time)
+			car = event.car_ped_cross
+			car.time_at_cross = event.arrival_time
+			if car.direction == 'left':
+				car.position = 1143
+			else:
+				car.position = 1167
+			if crosswalk.state == 'red' or crosswalk.state == 'yellow':
+				crosswalk.cars_waiting.append(car)
+			else:
+				exit_time = car.calc_time_from_cross_to_exit(event.arrival_time)
+				new_e = Event('car_exit',car,exit_time)
+				heapq.heappush(event_queue,new_e)
+
+		elif event.e_type == 'car_exit':
+			#print 'car exiting: %f' % (event.arrival_time)
+			car = event.car_ped_cross
+			if car.direction == 'left':
+				car.position = 0
+			else:
+				car.position = 2310
+			cars.append(car)
+
+		#Pedestrian Events
+		elif event.e_type == 'ped_arrival':
+			#print 'ped arrives: %f' % (event.arrival_time)
+			ped = event.car_ped_cross
+			new_e_time = ped.calc_walk_time_to_crosswalk()
+			new_e = Event('ped_crosswalk',ped,new_e_time)
+			heapq.heappush(event_queue, new_e)
+			if sim_clock < run_time_sec:
+				time_to_add = exponential(rng,15)
+				if sim_clock + time_to_add < run_time_sec:
+					new_p = new_ped(rng,ped.arrival_time+time_to_add,ped.direction)
+					e = Event('ped_arrival',new_p,new_p.arrival_time)
+					heapq.heappush(event_queue,e)
+			
+		elif event.e_type == 'ped_crosswalk':
+			#print 'ped at cross: %f' % (event.arrival_time)
+			ped = event.car_ped_cross
+			ped.time_at_cross = event.arrival_time
+			#all the stupid button pressing logic here:
+			#if a person is alone (2/3 chance) and the it's don't walk
+			if crosswalk.walk == False or ped.can_cross(crosswalk,event.arrival_time) == False:
+				if crosswalk.peds_waiting  == []:
+					#print "one person waiting"
+					if bernoulli(rng, 2/3):
+						new_e = Event('button_push',crosswalk,event.arrival_time)
+						heapq.heappush(event_queue, new_e)
+				elif crosswalk.peds_waiting != []:
+					#print "%d people waiting" % (len(crosswalk.peds_waiting) + 1)
+					if bernoulli(rng, 1/(len(crosswalk.peds_waiting) + 1)):
+						new_e = Event('button_push', crosswalk,event.arrival_time)
+						heapq.heappush(event_queue, new_e)
+				e = Event('wait_a_minute',ped,event.arrival_time+60)
+				heapq.heappush(event_queue, e)
+				crosswalk.peds_waiting.append(ped)
+			else:
+				ped.walking = True
+				exit_event = Event('ped_exit',ped,event.arrival_time+ped.calc_time_to_cross())
+				heapq.heappush(event_queue, exit_event)
+
+		if event.e_type == 'wait_a_minute':
+			ped = event.car_ped_cross
+			if ped.walking == False: 	
+				new_e = Event('button_push',crosswalk,event.arrival_time)
+				heapq.heappush(event_queue, new_e)
+
+		elif event.e_type == 'ped_exit':
+			#print 'ped exiting: %f' % (event.arrival_time)
+			ped = event.car_ped_cross
+			peds.append(ped)
+			
+
+		#crosswalk events
+		elif event.e_type == 'button_push':
+			cross = event.car_ped_cross
+			#This is so the button press will only have an effect if it's
+			#Green, doesn't stop pedestrians from pushing, just stops it 
+			#from having an effect
+			if cross.button_pressed == False:
+				yellow_start_time = max(event.arrival_time + 1, cross.last_green + 14)
+				e = Event('yellow_start',cross,yellow_start_time)
+				heapq.heappush(event_queue, e)
+				#print 'button pushed: %f' % (event.arrival_time)
+				cross.button_pressed = True
+
+		elif event.e_type == 'yellow_start':
+			cross = event.car_ped_cross
+			cross.state = 'yellow'
+			cross.walk = False
+			red_start_time = event.arrival_time + 8
+			e = Event('red_start',cross,red_start_time)
+			heapq.heappush(event_queue, e)
+			#print 'yellow light: %f' % (event.arrival_time)
+
+		elif event.e_type == 'red_start':
+			cross = event.car_ped_cross
+			cross.state = 'red'
+			cross.walk = True
+			for ped in cross.peds_waiting:
+				ped.wait_time = event.arrival_time - ped.time_at_cross
+				ped.walking = True
+				exit_time = ped.calc_time_to_cross() + event.arrival_time
+				e = Event('ped_exit',ped,exit_time)
+				heapq.heappush(event_queue, e)
+			cross.peds_waiting = []
+			green_start_time = event.arrival_time + 12
+			e = Event('green_start',cross,green_start_time)
+			heapq.heappush(event_queue, e)
+			#print 'red light: %f' % (event.arrival_time)
+
+		elif event.e_type == 'green_start':
+			#print 'green light: %f' % (event.arrival_time)
+			cross = event.car_ped_cross
+			cross.state = 'green'
+			cross.walk = False
+			#unblock all of the stopped cars
+			#and set the list of stopped cars to []
+			for car in cross.cars_waiting:
+				car.wait_time = event.arrival_time - car.time_at_cross
+				exit_time = car.calc_time_from_cross_to_exit(event.arrival_time)
+				e = Event('car_exit',car,exit_time)
+				heapq.heappush(event_queue, e)
+			cross.cars_waiting = []
+			#also set the crosswalk last_green to the current time
+			cross.last_green = event.arrival_time
+			cross.button_pressed = False
+		
+		#set the sim_clock to the event arrival time
+		sim_clock = event.arrival_time
+
+
+#Statistics
+car_welford = Welford()
+ped_welford = Welford()
+
+for car in cars:
+	car_welford.add(car.wait_time)
+for ped in peds:
+	ped_welford.add(ped.wait_time)
+
+car_avg = car_welford.xbar
+car_min = car_welford.min
+car_max = car_welford.max
+car_std = math.sqrt(car_welford.var)
+
+ped_avg = ped_welford.xbar
+ped_min = ped_welford.min
+ped_max = ped_welford.max
+ped_std = math.sqrt(ped_welford.var)
+
+print "OUTPUT Cars %d" % (len(cars))
+print "OUTPUT Pedestrians %d" % (len(peds))
+print "OUTPUT Duration %f" % (sim_clock)
+print "OUTPUT MIN,AVG,STD,MAX Cars %f, %f, %f, %f " % (car_min,car_avg,car_std,car_max)
+print "OUTPUT MIN,AVG,STD,MAX Pedestrians %f, %f, %f, %f " % (ped_min,ped_avg,ped_std,ped_max)
