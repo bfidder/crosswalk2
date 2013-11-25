@@ -94,14 +94,12 @@ def new_ped(rng,time,direction):
 car_welford = Welford(20)
 ped_welford = Welford(20)
 
-if run_type == 'M':
+if run_type == 'N':
 	#do ALL THE SETUP!
 	#initialize the LehmerRNG
 	rng = LehmerRNG(seed, 0)
 	sim_clock = 0.0
 	event_queue = []
-	cars = []
-	peds = []
 	crosswalk = Crosswalk('green',False,0,False,0)
 	
 	#initialize the car arrival events (from both sides
