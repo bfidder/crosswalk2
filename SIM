@@ -67,6 +67,7 @@ run_type = sys.argv[1]
 run_time = float(sys.argv[2])
 run_time_sec = run_time*60
 seed = int(sys.argv[3])
+#print run_time_sec
 
 #functions for getting a uniform random number
 #for a range and an exponiential random number
@@ -82,15 +83,16 @@ def bernoulli(rng, p):
 
 #function for creating a new car
 def new_car(rng,time,direction):
-	n_car = Car(36.66, 0, time, False, direction,time)
-	n_car.speed = rand_range(rng,36.66, 51.33)
+	n_car = Car(rand_range(rng,36.66, 51.33), 0, time, False, direction,time)
 	return n_car
 
 #function for creating a new pedestrian
 def new_ped(rng,time,direction):
-	n_ped = Pedestrian(6, time, 0, False, 0, direction, time)
-	n_ped.speed = rand_range(rng,6, 13)
+	n_ped = Pedestrian(rand_range(rng,6, 13), time, 0, False, 0, direction, time)
 	return n_ped
+
+car_welford = Welford(20)
+ped_welford = Welford(20)
 
 if run_type == 'M':
 	#do ALL THE SETUP!
@@ -164,7 +166,7 @@ if run_type == 'M':
 				car.position = 0
 			else:
 				car.position = 2310
-			cars.append(car)
+			car_welford.add(car.wait_time)
 
 		#Pedestrian Events
 		elif event.e_type == 'ped_arrival':
@@ -187,7 +189,7 @@ if run_type == 'M':
 			#all the stupid button pressing logic here:
 			#if a person is alone (2/3 chance) and the it's don't walk
 			if crosswalk.walk == False or ped.can_cross(crosswalk,event.arrival_time) == False:
-				if crosswalk.peds_waiting  == []:
+				if crosswalk.peds_waiting == []:
 					#print "one person waiting"
 					if bernoulli(rng, 2/3):
 						new_e = Event('button_push',crosswalk,event.arrival_time)
@@ -214,8 +216,7 @@ if run_type == 'M':
 		elif event.e_type == 'ped_exit':
 			#print 'ped exiting: %f' % (event.arrival_time)
 			ped = event.car_ped_cross
-			peds.append(ped)
-			
+			ped_welford.add(ped.wait_time)
 
 		#crosswalk events
 		elif event.e_type == 'button_push':
@@ -277,26 +278,26 @@ if run_type == 'M':
 
 
 #Statistics
-car_welford = Welford()
-ped_welford = Welford()
+car_avg = car_welford.xbar/60
+car_min = car_welford.min/60
+car_max = car_welford.max/60
+car_std = math.sqrt(car_welford.var)/60
 
-for car in cars:
-	car_welford.add(car.wait_time)
-for ped in peds:
-	ped_welford.add(ped.wait_time)
+ped_avg = ped_welford.xbar/60
+ped_min = ped_welford.min/60
+ped_max = ped_welford.max/60
+ped_std = math.sqrt(ped_welford.var)/60
 
-car_avg = car_welford.xbar
-car_min = car_welford.min
-car_max = car_welford.max
-car_std = math.sqrt(car_welford.var)
-
-ped_avg = ped_welford.xbar
-ped_min = ped_welford.min
-ped_max = ped_welford.max
-ped_std = math.sqrt(ped_welford.var)
-
-print "OUTPUT Cars %d" % (len(cars))
-print "OUTPUT Pedestrians %d" % (len(peds))
-print "OUTPUT Duration %f" % (sim_clock)
-print "OUTPUT MIN,AVG,STD,MAX Cars %f, %f, %f, %f " % (car_min,car_avg,car_std,car_max)
+print "OUTPUT Pedestrians %d" % (ped_welford.i)
+print "OUTPUT Cars %d" % (car_welford.i)
+print "OUTPUT Duration %f" % ((sim_clock/60)-run_time)
 print "OUTPUT MIN,AVG,STD,MAX Pedestrians %f, %f, %f, %f " % (ped_min,ped_avg,ped_std,ped_max)
+print "OUTPUT MIN,AVG,STD,MAX Cars %f, %f, %f, %f " % (car_min,car_avg,car_std,car_max)
+
+data_file = open('acwait.dat', 'a')
+for i in range(1,21):
+	car_core = car_welford.r(i)
+	ped_core = ped_welford.r(i)
+	data_file.write(str(ped_core) + " " + str(car_core) + "\n")
+
+data_file.close()
