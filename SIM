@@ -52,7 +52,6 @@ class Crosswalk:
 		self.state = state
 		self.walk = walk
 		self.last_green = last_green
-		self.cars_waiting = []
 		self.peds_waiting = []
 		self.button_pressed = button_pressed
 		self.when_walk = when_walk
@@ -276,7 +275,6 @@ if run_type == 'M':
 		#set the sim_clock to the event arrival time
 		sim_clock = event.arrival_time
 
-
 #Statistics
 car_avg = car_welford.xbar/60
 car_min = car_welford.min/60
@@ -301,3 +299,5 @@ for i in range(1,21):
 	data_file.write(str(ped_core) + " " + str(car_core) + "\n")
 
 data_file.close()
+
+# vim: noexpandtab tabstop=4
