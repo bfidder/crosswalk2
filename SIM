@@ -64,13 +64,8 @@ class Interval:
 
 #get the command line arguments
 argsize = len(sys.argv)
-<<<<<<< HEAD
 if argsize != 9:
 	print "Error: incorrect number of arguments."
-=======
-if argsize != 4:
-	print("Error: incorrect number of arguments.")
->>>>>>> 4d4f6d2ea8c60ca15cce02eb8ee68e7293dca5c2
 	exit(1)
 
 run_type = sys.argv[1]
