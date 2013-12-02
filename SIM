@@ -1,5 +1,10 @@
 #!/usr/bin/env python2
 
+# When a car attempts to queue a new event pass it through a layer that checks
+# if the car should be slowing for the crosswalk or exiting the simulation.
+# This way, car decide only has to worry about calculating what speed it can
+# optimally go at.
+
 import sys
 import random
 import math
@@ -95,7 +100,7 @@ class Interval:
 #get the command line arguments
 argsize = len(sys.argv)
 if argsize != 9:
-	print "Error: incorrect number of arguments."
+	print("Error: incorrect number of arguments.")
 	exit(1)
 
 run_type = sys.argv[1]
@@ -313,6 +318,7 @@ while event_queue:
 
 	elif event.e_type == 'car_decide':
 		print('car_decide')
+		#If a decide trickles back, remove that cars already scheduled car_decide
 
 	elif event.e_type == 'car_exit':
 		print('car exiting: %f' % (event.arrival_time))
