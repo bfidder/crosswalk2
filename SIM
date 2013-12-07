@@ -49,7 +49,7 @@ class Car:
 		return (time, dist)
 
 	def time_to_pos(self, abs_pos):
-		"""Given an position (relative to the simulation, not distance from car)
+		"""Given a position (relative to the simulation, not distance from car)
 		returns the amount of time needed to travel at current speed to that
 		position"""
 		return (abs_pos - self.position) / self.cur_speed
@@ -63,9 +63,6 @@ class Car:
 class Event:
 	def __init__(self, e_type, index, time):
 		self.e_type = e_type
-class Event:
-	def __init__(self, e_type, index, time):
-		self.e_type = e_type
 		self.index = index
 		self.time = time
 
@@ -76,8 +73,6 @@ class Event:
 class CarEvent(Event):
 	def __init__(self, e_type, car_index, direction, time):
 		super(Event, self).__init__(e_type, car_index, time)
-		self.direction = direction
-
 
 class Crosswalk:
 	def __init__(self,state,walk,last_green,button_pressed,when_walk):
@@ -230,20 +225,9 @@ cars_right.append(new_car(rng, arrival_time))
 event2 = CarEvent('car_arrival', 0, 'right', cars_right[0].arrival_time)
 crosswalk = Crosswalk('green',False,0,False,0)
 
-#initialize the car arrival events (from both sides
-#I'm using exponential 15 because there are 4 car per
-#minute and a 1/4 of a minute is 15 seconds and the 
-#range is in feet/sec instead of miles per hour
-car_start_left = Car(rand_range(rng,36.66,51.33),0,exponential(rng,60/car_first_rate),0,'left',0)
-event1 = Event('car_arrival',car_start_left,car_start_left.arrival_time)
-car_start_right = Car(rand_range(rng,36.66,51.33),2310,exponential(rng,60/car_first_rate),0,'right',0)
-event2 = Event('car_arrival',car_start_right,car_start_right.arrival_time)
+#Push car events into the event queue
 heapq.heappush(event_queue, event1)
 heapq.heappush(event_queue, event2)
-
-#For testing the crosswalk. It worked correctly. :)
-#e = Event('button_push',crosswalk,10)
-#heapq.heappush(event_queue, e)
 
 #initialize the ped arrival events (from both sides)
 ped_start_left = Pedestrian(rand_range(rng,6,13),exponential(rng,60/ped_first_rate),0,False,0,0)
@@ -262,6 +246,9 @@ while event_queue:
 	if isinstance(event, CarEvent):
 		# Get the direction that traffic travels so we can update the whole queue
 		direc = cars_left if event.direction == 'left' else cars_right
+	#Pause the while loop
+	raw_input()
+
 	#car block logic
 	if event.e_type == 'car_arrival':
 		print('car arrives: %f' % (event.arrival_time))
@@ -436,9 +423,6 @@ while event_queue:
 		#also set the crosswalk last_green to the current time
 		cross.last_green = event.arrival_time
 		cross.button_pressed = False
-	
-	#set the sim_clock to the event arrival time
-	sim_clock = event.arrival_time
 
 	elif event.e_type == 'green_start':
 		#print 'green light: %f' % (event.arrival_time)

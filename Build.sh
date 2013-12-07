@@ -1,3 +1,3 @@
 #!/bin/bash
 
-chmod +x SIM
+chmod u+x SIM
