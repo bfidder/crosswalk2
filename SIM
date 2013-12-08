@@ -270,15 +270,18 @@ heapq.heappush(event_queue, ped_event2)
 while event_queue:
 	#run the simulation
 	event = heapq.heappop(event_queue)
+
+	#DEBUG
+	print("%s: %.6f" % (event.e_type, event.time))
+
 	if isinstance(event, CarEvent):
 		# Get the direction that traffic travels so we can update the whole queue
 		direc = cars_left if event.direction == 'left' else cars_right
-	#Pause the while loop
-	raw_input()
+		print("  %s" % (event.direction))
 
 	#car block logic
 	if event.e_type == 'car_arrival':
-		print('car arrives: %f' % (event.time))
+		#print('car arrives: %f' % (event.time))
 		i = event.index
 		# Cover the special cases
 		if i == 0:
@@ -291,8 +294,8 @@ while event_queue:
 			direc[i].position = safe_stop_dist
 		else:
 			info = direc[i].time_to_speed(0.0)
-			if DIST_TO_CROSSWALK > direc[i+1].position:
-				no_closer = direc[i+1].position - 20
+			if DIST_TO_CROSSWALK > direc[i-1].position:
+				no_closer = direc[i-1].position - 20
 				safe_stop_dist = no_closer - info[1]
 				new_time = direc[i].time_to_pos(safe_stop_dist)
 				new_event = CarEvent('car_decide', i, event.direction, new_time)
@@ -317,7 +320,7 @@ while event_queue:
 			#heapq.heappush(event_queue,e)
 
 	elif event.e_type == 'car_crosswalk':
-		print('car in crosswalk: %f' % (event.time))
+		#print('car in crosswalk: %f' % (event.time))
 		car_i = event.index
 		car = direc[car_i]
 		car.time_at_cross = event.time
@@ -333,11 +336,12 @@ while event_queue:
 			heapq.heappush(event_queue,new_e)
 
 	elif event.e_type == 'car_decide':
-		print('car_decide')
+		event
+		#print('car_decide')
 		#If a decide trickles back, remove that cars already scheduled car_decide
 
 	elif event.e_type == 'car_exit':
-		print('car exiting: %f' % (event.arrival_time))
+		#print('car exiting: %f' % (event.arrival_time))
 		car_i = event.index
 		car = direc[car_i]
 		if car.direction == 'left':
@@ -348,7 +352,7 @@ while event_queue:
 
 	#Pedestrian Events
 	elif event.e_type == 'ped_arrival':
-		print('ped arrives: %f' % (event.time))
+		#print('ped arrives: %f' % (event.time))
 		i = event.index
 		ped = ped_array[i]
 		new_e_time = ped.calc_walk_time_to_crosswalk()
@@ -461,6 +465,10 @@ while event_queue:
 	
 	#set the sim_clock to the event arrival time
 	sim_clock = event.time
+
+	#Pause the while loop
+	#DEBUG
+	#raw_input()
 
 #Statistics
 #car_avg = car_welford.xbar/60
