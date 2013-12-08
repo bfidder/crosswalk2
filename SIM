@@ -242,7 +242,6 @@ crosswalk = Crosswalk('green',False,0,False,0)
 #I'm using exponential 15 because there are 4 car per
 #minute and a 1/4 of a minute is 15 seconds and the
 #range is in feet/sec instead of miles per hour
-# TODO: Use correct spawn lambda (which now varies with time, meet up with Bri)
 spawn_time_left = exponential(rng,60/car_first_rate)
 cars_left.append(new_car(rng, spawn_time_left))
 event1 = CarEvent('car_arrival', 0, 'left', cars_left[0].spawn_time)
@@ -316,8 +315,9 @@ while event_queue:
 				uni = rand_range(rng, 0, max_car_lambda/60)
 			new_c = new_car(rng,temp)
 			car_index = len(direc)
-			e = Event('car_arrival',car_index,new_c.spawn_time)
-			#heapq.heappush(event_queue,e)
+			direc.append(new_c)
+			e = CarEvent('car_arrival',car_index,event.direction,new_c.spawn_time)
+			heapq.heappush(event_queue,e)
 
 	elif event.e_type == 'car_crosswalk':
 		#print('car in crosswalk: %f' % (event.time))
@@ -360,10 +360,10 @@ while event_queue:
 		heapq.heappush(event_queue, new_e)
 		if ped.arrival_time < run_time_sec:
 			temp = ped.arrival_time + exponential(rng,60/max_ped_lambda)
-			uni = rand_range(rng, 0, max_ped_lambda)
+			uni = rand_range(rng, 0, max_ped_lambda/60)
 			while uni > find_rate('car',temp) and temp < run_time_sec:
 				temp = temp + exponential(rng, 60/max_ped_lambda)
-				uni = rand_range(rng, 0, max_ped_lambda)
+				uni = rand_range(rng, 0, max_ped_lambda/60)
 			new_p = new_ped(rng,temp)
 			ped_size = len(ped_array)
 			ped_array.append(new_p)
