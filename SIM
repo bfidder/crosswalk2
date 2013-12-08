@@ -5,11 +5,24 @@
 # This way, car decide only has to worry about calculating what speed it can
 # optimally go at.
 
-import sys
-import math
 import heapq
+import json
+import math
+import sys
 from LehmerRNG import LehmerRNG
 from welford import Welford
+
+MPH_TO_FPS = 5280.0 / 3600.0
+LAG_CORRELATION = 20
+NUM_BLOCKS = 7.0
+BLOCK_LENGTH = 330.0		#feet
+CROSS_WIDTH = 24.0			#feet, Distance cars have to travel
+CROSS_LENGTH = 46.0			#feet, Distance peds have to travel
+DIST_TO_BUTTON = BLOCK_LENGTH / 2		#feet
+DIST_TO_CROSSWALK = BLOCK_LENGTH * NUM_BLOCKS / 2 - CROSS_WIDTH / 2			#feet
+MIN_FT_PER_SEC_SQ = 7 * MPH_TO_FPS
+MAX_FT_PER_SEC_SQ = 12 * MPH_TO_FPS
+print(DIST_TO_CROSSWALK)
 
 #class definitions
 class Pedestrian:
@@ -21,9 +34,9 @@ class Pedestrian:
 		self.position = position
 		self.time_at_cross = time_at_cross
 	def calc_walk_time_to_crosswalk(self):
-		return (165/self.speed) + self.arrival_time
+		return BLOCK_LENGTH / (2 * self.speed) + self.arrival_time
 	def calc_time_to_cross(self):
-		return (46/self.speed)
+		return (CROSS_LENGTH/self.speed)
 	def can_cross(self,crosswalk,time):
 		time_to_cross = self.calc_time_to_cross()
 		return True if ((crosswalk.when_walk + 12) - time > time_to_cross)  else False
@@ -38,7 +51,7 @@ class Car:
 		self.spawn_time = spawn_time
 		self.strategy = 'constant'
 		self.position = 0.0
-		self.optimal_exit_time = int(max_speed) / (330.0 * 7)
+		self.optimal_exit_time = int(max_speed) / (BLOCK_LENGTH * NUM_BLOCKS)
 
 	def time_to_speed(self, new_speed):
 		if new_speed > self.max_speed:
@@ -93,10 +106,65 @@ class Interval:
 		self.finish = finish
 		self.rate = rate
 
+#functions for getting a uniform random number
+#for a range and an exponiential random number
+def rand_range(rng, a, b):
+	uni_random = rng.random()
+	return ((uni_random*(b-a)) + a)
+
+def exponential(rng, n):
+	return -n * math.log(1-rng.random())
+
+def bernoulli(rng, p):
+	return 1 if (rng.random() < (1.0 - p)) else 0
+
+def find_rate(car_ped, time):
+	arrives = time/60
+	if car_ped == 'car':
+		for inter in car_intervals:
+			if arrives >= inter.start and arrives < inter.finish:
+				return inter.rate
+	else:
+		for inter in ped_intervals:
+			if arrives >= inter.start and arrives < inter.finish:
+				return inter.rate
+
+def car_rate(rng):
+	rand_rate = 100 * rng.random()
+	previous_val = 0
+	for value in car_rates.values():
+		previous_val += float(value)
+		if rand_rate <= previous_val:
+			rate = [k for k, v in car_rates.iteritems() if v == value][0] 
+			return float(rate)
+
+def ped_rate(rng):
+	rand_rate = 100 * rng.random()
+	previous_val = 0
+	for value in ped_rates.values():
+		previous_val += float(value)
+		if rand_rate <= previous_val:
+			rate = [k for k, v in ped_rates.iteritems() if v == value][0] 
+			return float(rate)
+
+#function for creating a new car
+def new_car(rng,time):
+	n_car = Car(car_rate(rng),
+			rand_range(rng, MIN_FT_PER_SEC_SQ, MAX_FT_PER_SEC_SQ),
+			time)
+	return n_car
+
+#function for creating a new pedestrian
+def new_ped(rng,time):
+	n_ped = Pedestrian(ped_rate(rng), time, 0, False, 0, time)
+	return n_ped
+
+
 #get the command line arguments
 argsize = len(sys.argv)
 if argsize != 9:
 	print("Error: incorrect number of arguments.")
+	print("Usage: ./SIM N runtime seed ped_arrival car_arrival ped_rate car_rate trace_file")
 	exit(1)
 
 run_type = sys.argv[1]
@@ -158,7 +226,7 @@ for line in car_arrivals:
 last_inter = Interval(last_time, float('inf'),rate)
 car_intervals.append(last_inter)
 
-#parse the car rates file 
+#parse the car rates file
 car_rates = {}
 for line in car_rate.readlines():
 	split_line = line.split()
@@ -169,80 +237,23 @@ for line in ped_rate.readlines():
 	split_line = line.split()
 	ped_rates[split_line[0]] = split_line[1]
 
-#functions for getting a uniform random number
-#for a range and an exponiential random number
-def rand_range(rng, a, b):
-	uni_random = rng.random()
-	return ((uni_random*(b-a)) + a)
-
-def exponential(rng, n):
-	return -n * math.log(1-rng.random())
-
-def bernoulli(rng, p):
-	return 1 if (rng.random() < (1.0 - p)) else 0
-
-def find_rate(car_ped, time):
-	arrives = time/60
-	if car_ped == 'car':
-		for inter in car_intervals:
-			if arrives >= inter.start and arrives < inter.finish:
-				return inter.rate
-	else:
-		for inter in ped_intervals:
-			if arrives >= inter.start and arrives < inter.finish:
-				return inter.rate
-
-def car_rate(rng):
-	rand_rate = 100 * rng.random()
-	previous_val = 0
-	for value in car_rates.values():
-		previous_val += float(value)
-		if rand_rate <= previous_val:
-			rate = [k for k, v in car_rates.iteritems() if v == value][0] 
-			return float(rate)
-
-def ped_rate(rng):
-	rand_rate = 100 * rng.random()
-	previous_val = 0
-	for value in ped_rates.values():
-		previous_val += float(value)
-		if rand_rate <= previous_val:
-			rate = [k for k, v in ped_rates.iteritems() if v == value][0] 
-			return float(rate)
-
-#function for creating a new car
-def new_car(rng,time):
-	MIN_FT_PER_SEC_SQ = 7 * 5280 / 3600
-	MAX_FT_PER_SEC_SQ = 12 * 5280 / 3600
-	n_car = Car(car_rate(rng),
-			rand_range(rng, MIN_FT_PER_SEC_SQ, MAX_FT_PER_SEC_SQ),
-			time)
-	return n_car
-
-#function for creating a new pedestrian
-def new_ped(rng,time):
-	n_ped = Pedestrian(ped_rate(rng), time, 0, False, 0, time)
-	return n_ped
-
-car_welford = Welford(20)
-ped_welford = Welford(20)
 
 #do ALL THE SETUP!
-#initialize the LehmerRNG
 rng = LehmerRNG(seed, 0)
 sim_clock = 0.0
 event_queue = []
 cars_left = []
 cars_right = []
 ped_array = []
-DIST_TO_CROSSWALK = 330.0 * 7 / 2 - 12.0
 crosswalk = Crosswalk('green',False,0,False,0)
+car_welford = Welford(LAG_CORRELATION)
+ped_welford = Welford(LAG_CORRELATION)
 
 #initialize the car arrival events (from both sides
 #I'm using exponential 15 because there are 4 car per
 #minute and a 1/4 of a minute is 15 seconds and the
 #range is in feet/sec instead of miles per hour
-spawn_time_left = exponential(rng,60/car_first_rate)
+spawn_time_left = exponential(rng, 60 / car_first_rate)
 cars_left.append(new_car(rng, spawn_time_left))
 event1 = CarEvent('car_arrival', 0, 'left', cars_left[0].spawn_time)
 
@@ -253,7 +264,7 @@ crosswalk = Crosswalk('green',False,0,False,0)
 
 #Push car events into the event queue
 heapq.heappush(event_queue, event1)
-heapq.heappush(event_queue, event2)
+#heapq.heappush(event_queue, event2)
 
 #initialize the ped arrival events (from both sides)
 ped_start_left = Pedestrian(ped_rate(rng),exponential(rng,60/ped_first_rate),0,False,0,0)
@@ -266,10 +277,13 @@ heapq.heappush(event_queue, ped_event1)
 heapq.heappush(event_queue, ped_event2)
 
 
+
+
+
+
 while event_queue:
 	#run the simulation
 	event = heapq.heappop(event_queue)
-
 	if isinstance(event, CarEvent):
 		# Get the direction that traffic travels so we can update the whole queue
 		direc = cars_left if event.direction == 'left' else cars_right
@@ -279,36 +293,24 @@ while event_queue:
 		#DEBUG
 		print("%s: %.6f" % (event.e_type, event.time))
 
-
 	#car block logic
 	if event.e_type == 'car_arrival':
 		#print('car arrives: %f' % (event.time))
 		i = event.index
-		# Cover the special cases
-		if i == 0:
-			# info is a tuple of time to get to the speed, and distance traveled in that time
-			info = direc[i].time_to_speed(0.0)
+		# info is a tuple of time to get to the speed, and distance traveled in that time
+		info = direc[i].time_to_speed(0.0)
+		if i == 0 or DIST_TO_CROSSWALK < direc[i-1].position:
 			safe_stop_dist = DIST_TO_CROSSWALK - info[1]
 			new_time = direc[i].time_to_pos(safe_stop_dist)
-			new_event = CarEvent('car_decide', i, event.direction, new_time)
-			heapq.heappush(event_queue, new_event)
-			direc[i].position = safe_stop_dist
 		else:
-			info = direc[i].time_to_speed(0.0)
-			if DIST_TO_CROSSWALK > direc[i-1].position:
-				no_closer = direc[i-1].position - 20
-				safe_stop_dist = no_closer - info[1]
-				new_time = direc[i].time_to_pos(safe_stop_dist)
-				new_event = CarEvent('car_decide', i, event.direction, new_time)
-				heapq.heappush(event_queue, new_event)
-				direc[i].position = safe_stop_dist
-			else:
-				# TODO This is the same as if they are the first car, DRY this up
-				safe_stop_dist = DIST_TO_CROSSWALK - info[1]
-				new_time = direc[i].time_to_pos(safe_stop_dist)
-				new_event = CarEvent('car_decide', i, event.direction, new_time)
-				heapq.heappush(event_queue, new_event)
-				direc[i].position = safe_stop_dist
+			no_closer = direc[i-1].position - 20
+			safe_stop_dist = no_closer - info[1]
+			new_time = direc[i].time_to_pos(safe_stop_dist)
+		#DEBUG
+		print(new_time)
+		new_event = CarEvent('car_decide', i, event.direction, new_time)
+		heapq.heappush(event_queue, new_event)
+		direc[i].position = safe_stop_dist
 		if event.time < run_time_sec:
 			temp = event.time + exponential(rng,60/max_car_lambda)
 			uni = rand_range(rng, 0, max_car_lambda/60)
@@ -338,8 +340,13 @@ while event_queue:
 			heapq.heappush(event_queue,new_e)
 
 	elif event.e_type == 'car_decide':
-		event
-		#print('car_decide')
+		car = direc[event.index]
+		if car.position < DIST_TO_CROSSWALK:
+			#Decide if we need to stop at the stoplight, else we can zip through
+			car
+		print("index: %d" % event.index)
+		print("\"thiscar\": %s" % json.dumps(direc[event.index].__dict__))
+		print("\"ahead\": %s" % json.dumps(direc[event.index-1].__dict__))
 		#If a decide trickles back, remove that cars already scheduled car_decide
 
 	elif event.e_type == 'car_exit':
@@ -470,7 +477,7 @@ while event_queue:
 
 	#Pause the while loop
 	#DEBUG
-	#raw_input()
+	raw_input()
 
 #Statistics
 #car_avg = car_welford.xbar/60
