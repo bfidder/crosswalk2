@@ -45,13 +45,13 @@ class Pedestrian:
 class Car:
 	"""Holds data about each car that runs through the simulation."""
 	def __init__(self, max_speed, accel, spawn_time):
-		self.max_speed = max_speed
+		self.max_speed = float(max_speed)
 		self.cur_speed = self.max_speed
-		self.accel = accel
-		self.spawn_time = spawn_time
+		self.accel = float(accel)
+		self.spawn_time = float(spawn_time)
 		self.strategy = 'constant'
-		self.position = 0.0
-		self.optimal_exit_time = int(max_speed) / (BLOCK_LENGTH * NUM_BLOCKS)
+		self.position = float(0.0)
+		self.optimal_exit_time = max_speed / (BLOCK_LENGTH * NUM_BLOCKS)
 
 	def time_to_speed(self, new_speed):
 		if new_speed > self.max_speed:
@@ -74,6 +74,13 @@ class Car:
 		to the car specified."""
 		# Use the other car's current position and speed to determine the optimal
 		# (fastest) way to minimize distance between cars
+		if car:
+			print("you go %.4f, I'm going %.4f" % (car.cur_speed, self.cur_speed))
+			print("we're %.4f apart" % (car.position - self.position))
+			max_vel = car.cur_speed if car.cur_speed < self.max_speed else self.max_speed
+		else:
+			max_vel = max_speed
+		print("I can go %.4f (%.4f)" % (max_vel, self.cur_speed))
 		raise NotImplementedError
 
 
@@ -187,8 +194,8 @@ trace_file = sys.argv[8]
 #open all of the files
 ped_arrive = open(ped_file, 'r')
 car_arrive = open(car_file, 'r')
-ped_rate = open(ped_rate_file, 'r')
-car_rate = open(car_rate_file, 'r')
+ped_rate_f = open(ped_rate_file, 'r')
+car_rate_f = open(car_rate_file, 'r')
 trace = open(trace_file, 'a')
 
 ped_intervals = []
@@ -233,12 +240,12 @@ car_intervals.append(last_inter)
 
 #parse the car rates file
 car_rates = {}
-for line in car_rate.readlines():
+for line in car_rate_f.readlines():
 	split_line = line.split()
 	car_rates[split_line[0]] = split_line[1]
 
 ped_rates = {}
-for line in ped_rate.readlines():
+for line in ped_rate_f.readlines():
 	split_line = line.split()
 	ped_rates[split_line[0]] = split_line[1]
 
@@ -312,7 +319,8 @@ while event_queue:
 			safe_stop_dist = no_closer - info[1]
 			new_time = direc[i].time_to_pos(safe_stop_dist)
 		#DEBUG
-		print(new_time)
+		print("schedule decision for %.4f" % new_time)
+		print("go to %.4f" % safe_stop_dist)
 		new_event = CarEvent('car_decide', i, event.direction, new_time)
 		heapq.heappush(event_queue, new_event)
 		direc[i].position = safe_stop_dist
