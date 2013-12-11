@@ -68,7 +68,12 @@ class Car:
 
 	def decide_on_strategy(self, car):
 		"""Given the i-1th car, this car will decide whether it can maintain its
-		velocity, or if it needs to accelerate or decelerate."""
+		velocity, or if it needs to accelerate or decelerate.
+		
+		Does not consider the crosswalk light. This only decides how best to get
+		to the car specified."""
+		# Use the other car's current position and speed to determine the optimal
+		# (fastest) way to minimize distance between cars
 		raise NotImplementedError
 
 
@@ -340,7 +345,11 @@ while event_queue:
 			heapq.heappush(event_queue,new_e)
 
 	elif event.e_type == 'car_decide':
+		#This logic handles getting the car through major obstacles
+		#The car will decide how it will handle cars in front of it.
+		i = event.index
 		car = direc[event.index]
+		decision = car.decide_on_strategy(direc[event.index-1] if i > 0 else None)
 		if car.position < DIST_TO_CROSSWALK:
 			#Decide if we need to stop at the stoplight, else we can zip through
 			car
