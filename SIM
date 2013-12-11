@@ -22,7 +22,7 @@ DIST_TO_BUTTON = BLOCK_LENGTH / 2		#feet
 DIST_TO_CROSSWALK = BLOCK_LENGTH * NUM_BLOCKS / 2 - CROSS_WIDTH / 2			#feet
 MIN_FT_PER_SEC_SQ = 7 * MPH_TO_FPS
 MAX_FT_PER_SEC_SQ = 12 * MPH_TO_FPS
-print(DIST_TO_CROSSWALK)
+#print(DIST_TO_CROSSWALK)
 
 #class definitions
 class Pedestrian:
@@ -81,7 +81,7 @@ class Car:
 		else:
 			max_vel = max_speed
 		print("I can go %.4f (%.4f)" % (max_vel, self.cur_speed))
-		raise NotImplementedError
+		#raise NotImplementedError
 
 
 class Event:
@@ -300,10 +300,10 @@ while event_queue:
 		# Get the direction that traffic travels so we can update the whole queue
 		direc = cars_left if event.direction == 'left' else cars_right
 		#DEBUG
-		print("%s: %s %.6f" % (event.e_type, event.direction, event.time))
-	else:
+		#print("%s: %s %.6f" % (event.e_type, event.direction, event.time))
+	#else:
 		#DEBUG
-		print("%s: %.6f" % (event.e_type, event.time))
+		#print("%s: %.6f" % (event.e_type, event.time))
 
 	#car block logic
 	if event.e_type == 'car_arrival':
@@ -319,8 +319,8 @@ while event_queue:
 			safe_stop_dist = no_closer - info[1]
 			new_time = direc[i].time_to_pos(safe_stop_dist)
 		#DEBUG
-		print("schedule decision for %.4f" % new_time)
-		print("go to %.4f" % safe_stop_dist)
+		#print("schedule decision for %.4f" % new_time)
+		#print("go to %.4f" % safe_stop_dist)
 		new_event = CarEvent('car_decide', i, event.direction, new_time)
 		heapq.heappush(event_queue, new_event)
 		direc[i].position = safe_stop_dist
@@ -357,13 +357,13 @@ while event_queue:
 		#The car will decide how it will handle cars in front of it.
 		i = event.index
 		car = direc[event.index]
-		decision = car.decide_on_strategy(direc[event.index-1] if i > 0 else None)
+		#decision = car.decide_on_strategy(direc[event.index-1] if i > 0 else None)
 		if car.position < DIST_TO_CROSSWALK:
 			#Decide if we need to stop at the stoplight, else we can zip through
 			car
-		print("index: %d" % event.index)
-		print("\"thiscar\": %s" % json.dumps(direc[event.index].__dict__))
-		print("\"ahead\": %s" % json.dumps(direc[event.index-1].__dict__))
+		#print("index: %d" % event.index)
+		#print("\"thiscar\": %s" % json.dumps(direc[event.index].__dict__))
+		#print("\"ahead\": %s" % json.dumps(direc[event.index-1].__dict__))
 		#If a decide trickles back, remove that cars already scheduled car_decide
 
 	elif event.e_type == 'car_exit':
@@ -494,7 +494,7 @@ while event_queue:
 
 	#Pause the while loop
 	#DEBUG
-	raw_input()
+	#raw_input()
 
 #Statistics
 #car_avg = car_welford.xbar/60
