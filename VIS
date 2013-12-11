@@ -24,9 +24,15 @@ class Pedestrian:
 		if self.pos.right > 600:
 			self.pos.left = 0
 
+if len(sys.argv) < 2:
+	print "useage: ./VIS <filename>"
+
+filename = sys.argv[1]
+
+f = open(filename, 'r')
+
 pygame.init()
 pygame.font.init()
-
 
 screen = pygame.display.set_mode((700, 480))
 pygame.display.set_caption('Crosswalk Simulator')
@@ -39,22 +45,24 @@ background = pygame.Surface(screen.get_size())
 background = background.convert()
 background.fill((250, 250, 250))
 
+cars = []
+for line in f.readlines():
+	c = Car(car_left_pic, 60, 1)
+	cars.append(c)
+
 #screen.blit(background, (0,0))
 pygame.display.flip()
 
 clock = pygame.time.Clock()
 
 cars = []
-for i in range(10):
-	o = Car(car_left_pic, i*40, i)
-	cars.append(o)
+o = Car(car_left_pic, 40, 1)
 
 while 1:
 	for event in pygame.event.get():
 		if event.type in (QUIT, KEYDOWN):
 			sys.exit()
-	for o in cars:
-		o.move()
-		screen.blit(o.image, o.pos)
+	o.move()
+	screen.blit(o.image, o.pos)
 	pygame.display.update()
 	pygame.time.delay(100)
